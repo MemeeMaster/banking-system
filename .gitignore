@@ -129,4 +129,6 @@ GitHub.sublime-settings
 !.vscode/extensions.json 
 .history
 
+migrations
+
 # https://djangowaves.com/tips-tricks/gitignore-for-a-django-project/
