@@ -27,7 +27,7 @@ class Currency(models.Model):
     exchange_rate = models.DecimalField(default=0, max_digits=15, decimal_places=3)
 
     def __str__(self):
-        return self.name
+        return self.code
 
     class Meta:
         verbose_name_plural = "Currencies"
@@ -107,6 +107,11 @@ class Account(models.Model):
     def make_transfer(self, account_number, amount):
         if amount <= 0:
             raise ValueError("Deposit must be positive.")
+        if amount > self.balance:
+            raise ValueError("You don't have enough money to finish transaction.")
+        if account_number == self.account_number:
+            raise ValueError("You can't transfer money to the same account.")
+        
         target_account = get_object_or_404(Account, account_number=account_number)
 
         self.balance -= amount

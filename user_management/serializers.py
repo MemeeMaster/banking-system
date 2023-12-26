@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Account, BankUser
+from .models import Account, Currency
 
 
 # Create your views here.
@@ -12,6 +12,8 @@ from .models import Account, BankUser
 
 
 class AccountSerializer(serializers.HyperlinkedModelSerializer):
+    currency = serializers.StringRelatedField()
+
     class Meta:
         model = Account
         fields = ["account_number", "balance", "currency"]
