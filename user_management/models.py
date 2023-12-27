@@ -1,11 +1,13 @@
+from decimal import Decimal
 import random
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
 from django.db import models
 from rest_framework.authentication import _
-from rest_framework.generics import get_object_or_404
+from rest_framework.exceptions import NotFound, ValidationError
 
 from bank_system.settings import BANK_ROUTING_NUMBER
+from .exceptions import TransferException
 
 
 def generate_account_number():
@@ -36,9 +38,9 @@ class Currency(models.Model):
 class BankUserManager(BaseUserManager):
     def _create_user(self, email, password, first_name, last_name, **kwargs):
         if not email:
-            raise ValueError("Email must be provided.")
+            raise ValidationError(detail="Email must be provided.")
         if not password:
-            raise ValueError("Password is not provided.")
+            raise ValidationError(detail="Password is not provided.")
 
         user = self.model(
             email=self.normalize_email(email),
@@ -88,40 +90,53 @@ class BankUser(AbstractBaseUser, PermissionsMixin):
         return f"{self.first_name} {self.last_name}"
 
 
+class AccountManager(models.Manager):
+    def safe_get(self, account_number):
+        result = super().get_queryset().filter(account_number=account_number).first()
+        if result is None:
+            raise NotFound(detail=f"{account_number} account not found.")
+        return result
+
+
 class Account(models.Model):
     account_number = models.CharField(primary_key=True, max_length=20, unique=True, editable=False, blank=True)
     balance = models.DecimalField(default=0, max_digits=14, decimal_places=2)
     currency = models.ForeignKey(Currency, on_delete=models.SET(get_default_currency), default=get_default_currency)
     owner = models.ForeignKey(BankUser, on_delete=models.CASCADE, null=True)
 
+    objects = AccountManager()
+
     def __str__(self):
         return self.account_number
 
     def deposit(self, amount):
         if amount <= 0:
-            raise ValueError("Deposit must be positive.")
+            raise TransferException(detail="Deposit must be positive.")
 
-        self.balance += amount
+        self.balance += Decimal(amount)
         self.save()
 
     def make_transfer(self, account_number, amount):
         if amount <= 0:
-            raise ValueError("Deposit must be positive.")
+            raise TransferException(detail="Deposit must be positive.")
         if amount > self.balance:
-            raise ValueError("You don't have enough money to finish transaction.")
+            raise TransferException(detail="You don't have enough money to finish transaction.")
         if account_number == self.account_number:
-            raise ValueError("You can't transfer money to the same account.")
-        
-        target_account = get_object_or_404(Account, account_number=account_number)
+            raise TransferException(detail="You can't transfer money to the same account.")
 
-        self.balance -= amount
-        target_account.balance += amount
+        target_account = Account.objects.safe_get(account_number=account_number)
+
+        self.balance -= Decimal(amount)
+        target_account.balance += Decimal(amount)
 
         self.save()
         target_account.save()
 
     def change_currency(self, wanted_currency):
-        new_currency = get_object_or_404(Currency, code=wanted_currency)
+        new_currency = Currency.objects.filter(code=wanted_currency).first()
+        if new_currency is None:
+            raise NotFound(detail=f"{wanted_currency} is not supported.")
+
         current_currency = self.currency
         current_balance = self.balance
 
