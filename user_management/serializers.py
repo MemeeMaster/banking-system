@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Account, Currency
+from .models import Account
 
 
 # Create your views here.
@@ -17,3 +17,16 @@ class AccountSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Account
         fields = ["account_number", "balance", "currency"]
+
+
+class DepositSerializer(serializers.Serializer):
+    amount = serializers.FloatField(allow_null=False)
+
+
+class TransferSerializer(serializers.Serializer):
+    amount = serializers.FloatField(allow_null=False)
+    target_account_number = serializers.CharField(allow_blank=False)
+
+
+class CurrencySerializer(serializers.Serializer):
+    wanted_currency = serializers.CharField(allow_blank=False)
