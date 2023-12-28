@@ -1,10 +1,14 @@
 from django.contrib.auth.password_validation import validate_password
 from django.template.defaultfilters import upper
 from rest_framework import status
+from rest_framework.exceptions import ValidationError as RestValidationError
 from django.core.exceptions import ValidationError
 from rest_framework.generics import RetrieveDestroyAPIView
+from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from security.permissions import IsAccountOwner
 
 from .exceptions import TransferException
 
@@ -17,11 +21,15 @@ from .serializers import AccountSerializer, BankUserSerializer, CurrencySerializ
 
 
 class AccountView(RetrieveDestroyAPIView):
+    permission_classes = [IsAdminUser | IsAccountOwner]
+
     queryset = Account.objects.all()
     serializer_class = AccountSerializer
 
 
 class AccountOperationView(APIView):
+    permission_classes = [IsAdminUser | IsAccountOwner]
+
     queryset = Account.objects.all()
     serializer_class = AccountSerializer
 
@@ -71,21 +79,19 @@ class BankUserView(APIView):
     def post(self, request):
         serializer = BankUserSerializer(data=request.data)
 
-        password = request.data.get("password")
-        try:
-            validate_password(password)
-        except ValidationError as e:
-            return Response({"error": e.messages}, status=status.HTTP_400_BAD_REQUEST)
-
-
         if serializer.is_valid():
             validated_data = serializer.validated_data
             email = validated_data.get("email")
-            password = validated_data.get("password")
             first_name = validated_data.get("first_name")
             last_name = validated_data.get("last_name")
+            password = validated_data.get("password")
+
+            try:
+                validate_password(password)
+            except ValidationError as e:
+                return Response({"password_error": e.messages}, status=status.HTTP_400_BAD_REQUEST)
 
             BankUser.objects.create_user(email, password, first_name, last_name)
             return Response({"message": "Account created."})
         else:
-            raise ValidationError(serializer.errors)
+            raise RestValidationError(serializer.errors)
