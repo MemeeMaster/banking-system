@@ -12,11 +12,29 @@ from .exceptions import TransferException
 
 letter_validator = RegexValidator(r'^[a-zA-Z-]*$', 'Only letters are allowed.')
 
+
 def generate_account_number():
     generated_number = random.randint(100000000, 999999999)
     check_digit = random.randint(0, 9)
 
     return f"{BANK_ROUTING_NUMBER}-{generated_number:08d}-{check_digit}"
+
+
+def convert_currency(current_currency, balance, target_currency):
+    new_currency = Currency.objects.filter(code=target_currency).first()
+    if new_currency is None:
+        raise NotFound(detail=f"{target_currency} is not supported.")
+
+    current_exchange_rate = float(current_currency.exchange_rate)
+    new_exchange_rate = float(new_currency.exchange_rate)
+    balance_float = float(balance)
+
+    if current_currency.code == "USD":
+        new_balance = balance_float * (1 / new_exchange_rate)
+    else:
+        new_balance = balance_float * current_exchange_rate * (1 / new_exchange_rate)
+
+    return {"balance": new_balance, "currency": new_currency}
 
 
 def get_default_currency():
@@ -127,26 +145,21 @@ class Account(models.Model):
             raise TransferException(detail="You can't transfer money to the same account.")
 
         target_account = Account.objects.safe_get(account_number=account_number)
+        target_currency = target_account.currency
+
+        if target_currency != "USD":
+            new_amount = convert_currency(self.currency, amount, target_currency)["balance"]
+        else: new_amount = amount
 
         self.balance -= Decimal(amount)
-        target_account.balance += Decimal(amount)
+        target_account.balance += Decimal(new_amount)
 
         self.save()
         target_account.save()
 
     def change_currency(self, wanted_currency):
-        new_currency = Currency.objects.filter(code=wanted_currency).first()
-        if new_currency is None:
-            raise NotFound(detail=f"{wanted_currency} is not supported.")
+        converted_currency = convert_currency(self.currency, self.balance, wanted_currency)
 
-        current_currency = self.currency
-        current_balance = self.balance
-
-        if current_currency.code == "USD":
-            current_balance = current_balance * (1 / new_currency.exchange_rate)
-        else:
-            current_balance = current_balance * current_currency.exchange_rate * (1 / new_currency.exchange_rate)
-
-        self.balance = current_balance
-        self.currency = new_currency
+        self.balance = converted_currency["balance"]
+        self.currency = converted_currency["currency"]
         self.save()
