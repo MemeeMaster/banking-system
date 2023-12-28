@@ -5,10 +5,12 @@ from django.contrib.auth.models import PermissionsMixin
 from django.db import models
 from rest_framework.authentication import _
 from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.fields import RegexValidator
 
 from bank_system.settings import BANK_ROUTING_NUMBER
 from .exceptions import TransferException
 
+letter_validator = RegexValidator(r'^[a-zA-Z-]*$', 'Only letters are allowed.')
 
 def generate_account_number():
     generated_number = random.randint(100000000, 999999999)
@@ -70,8 +72,8 @@ class BankUserManager(BaseUserManager):
 
 class BankUser(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(db_index=True, unique=True)
-    first_name = models.CharField(max_length=50)
-    last_name = models.CharField(max_length=50)
+    first_name = models.CharField(max_length=50, validators=[letter_validator])
+    last_name = models.CharField(max_length=50, validators=[letter_validator])
 
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
@@ -109,9 +111,9 @@ class Account(models.Model):
     def __str__(self):
         return self.account_number
 
-    def deposit(self, amount):
-        if amount <= 0:
-            raise TransferException(detail="Deposit must be positive.")
+    def deposit_or_withdrawal(self, amount):
+        if amount == 0:
+            raise TransferException(detail="Deposit cannot be zero.")
 
         self.balance += Decimal(amount)
         self.save()

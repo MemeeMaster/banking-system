@@ -27,7 +27,6 @@ DEBUG = env('IS_DEVELOPMENT', True)
 
 ALLOWED_HOSTS = []
 
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -71,7 +70,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'bank_system.wsgi.application'
 
-
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
@@ -82,16 +80,22 @@ DATABASES = {
     }
 }
 
-
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        'OPTIONS': {
+            'max_similarity': 0.7,
+            'user_attributes': ("username", "first_name", "last_name", "email")
+        }
     },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {
+            'min_length': 6,
+        }
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
@@ -99,8 +103,39 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
+    {
+        'NAME': 'user_management.validators.GenericPasswordValidator',
+        'OPTIONS': {
+            'regexp': '[A-Z]',
+            'error_code': 'password_no_upper',
+            'error_message': 'The password must contain at least 1 uppercase letter, A-Z.',
+        }
+    },
+    {
+        'NAME': 'user_management.validators.GenericPasswordValidator',
+        'OPTIONS': {
+            'regexp': '[a-z]',
+            'error_code': 'password_no_lower',
+            'error_message': 'The password must contain at least 1 lowercase letter, a-z.',
+        }
+    },
+    {
+        'NAME': 'user_management.validators.GenericPasswordValidator',
+        'OPTIONS': {
+            'regexp': '[0-9]',
+            'error_code': 'password_no_number',
+            'error_message': 'The password must contain at least 1 number, 0-9.',
+        }
+    },
+    {
+        'NAME': 'user_management.validators.GenericPasswordValidator',
+        'OPTIONS': {
+            'regexp': '[@#$%!^&*]',
+            'error_code': 'password_no_symbol',
+            'error_message': 'The password must contain at least 1 special character: @#$%!^&*',
+        }
+    },
 ]
-
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
@@ -112,7 +147,6 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 
 USE_TZ = True
-
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
